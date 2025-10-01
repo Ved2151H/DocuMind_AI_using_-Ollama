@@ -8,6 +8,9 @@ from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationalRetrievalChain
 from langchain.prompts import PromptTemplate
 
+# Import templates
+import htmlTemplates as ht
+
 
 def get_pdf_text(pdf_docs):
     text = ""
@@ -56,26 +59,67 @@ Answer:""",
 
 
 def main():
-    st.title("📄 DocuMind AI")
-    
-    # Sidebar
-    st.sidebar.header("Upload PDF Documents")
-    pdf_docs = st.sidebar.file_uploader("Upload PDFs", accept_multiple_files=True, type="pdf")
-    selected_model = st.sidebar.selectbox("Select Model", ["llama2", "mistral", "mixtral"])
-    
-    if st.sidebar.button("Process PDFs") and pdf_docs:
-        raw_text = get_pdf_text(pdf_docs)
-        chunks = get_text_chunks(raw_text)
-        vectorstore = get_vectorstore(chunks, selected_model)
-        st.session_state.conversation = get_conversation_chain(vectorstore, selected_model)
-        st.success("Documents processed! You can now ask questions.")
+    # Page config
+    st.set_page_config(
+        page_title="DocuMind AI",
+        page_icon="🧠",  # only 1 emoji kept
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
 
-    # Chat interface
+    # Apply custom CSS
+    st.markdown(ht.css, unsafe_allow_html=True)
+
+    # Header
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.title("DocuMind AI 🧠")   # simple, one emoji
+        st.markdown("#### Your Intelligent PDF Assistant")
+        st.markdown("---")
+
+    # Sidebar
+    with st.sidebar:
+        st.header("📂 Document Upload")  # one emoji for sidebar
+        pdf_docs = st.file_uploader(
+            "Choose PDF files", accept_multiple_files=True, type="pdf"
+        )
+
+        st.markdown("---")
+        st.header("⚙️ Settings")
+        selected_model = st.selectbox("AI Model", ["llama2", "mistral", "mixtral"])
+
+        if pdf_docs:
+            st.info(f"{len(pdf_docs)} file(s) uploaded")
+            if st.button("Process Documents"):
+                with st.spinner("Processing PDFs... Please wait"):
+                    raw_text = get_pdf_text(pdf_docs)
+                    chunks = get_text_chunks(raw_text)
+                    vectorstore = get_vectorstore(chunks, selected_model)
+                    st.session_state.conversation = get_conversation_chain(vectorstore, selected_model)
+                st.success("Ready to chat!")
+
+    # Main chat interface
     if "conversation" in st.session_state and st.session_state.conversation:
-        user_input = st.text_input("Ask a question about your PDFs:")
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+
+        for message in st.session_state.messages:
+            if message["role"] == "user":
+                st.markdown(ht.user_message(message["content"]), unsafe_allow_html=True)
+            else:
+                st.markdown(ht.bot_message(message["content"]), unsafe_allow_html=True)
+
+        user_input = st.text_input("Ask a question", placeholder="Type your question...")
+
         if st.button("Send") and user_input:
-            response = st.session_state.conversation({"question": user_input})
-            st.write("**Answer:**", response["answer"])
+            st.session_state.messages.append({"role": "user", "content": user_input})
+            with st.spinner("Thinking..."):
+                response = st.session_state.conversation({"question": user_input})
+                answer = response["answer"]
+            st.session_state.messages.append({"role": "bot", "content": answer})
+            st.rerun()
+    else:
+        st.markdown(ht.welcome_html, unsafe_allow_html=True)
 
 
 if __name__ == "__main__":

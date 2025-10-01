@@ -84,6 +84,9 @@ and interactively ask questions based only on the PDF content.
 # pip install typing-extensions requests numpy
 
 """
+***for first time***
+       python -m venv venv
+ 
 9. Run Ollama Server (Before running the app)
 """
 # ollama serve
